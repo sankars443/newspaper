@@ -34,10 +34,10 @@
         const IndianRupee = ({size=24, className=""}) => (<svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12"></path><path d="M6 8h12"></path><path d="M6 13h8.5a4.5 4.5 0 0 0 0-9"></path><path d="M11 13l5 8"></path></svg>);
         const Share2 = ({size=24, className=""}) => (<svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>);
 
-        // Predefined Lists
-        const NEWSPAPERS = ["MATHRUBHUMI", "MALAYALA MANORAMA", "HINDHU"];
-        const SUPPLEMENTS = ["VANITHA", "GRIHALAKSHMI", "JYOTHISHA RATHNAM", "KARSHAKASREE", "ARODGYA MASIKA"];
-        const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        // Initial Default Lists
+        const DEFAULT_NEWSPAPERS = ["MATHRUBHUMI", "MALAYALA MANORAMA", "HINDHU"];
+        const DEFAULT_SUPPLEMENTS = ["VANITHA", "GRIHALAKSHMI", "JYOTHISHA RATHNAM", "KARSHAKASREE", "ARODGYA MASIKA"];
+        const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
         // Initial Default Prices
         const initialPrices = {
@@ -54,6 +54,16 @@
         function App() {
           const [activeTab, setActiveTab] = useState('billing');
           
+          // Dynamic Lists State
+          const [newspapersList, setNewspapersList] = useState(DEFAULT_NEWSPAPERS);
+          const [supplementsList, setSupplementsList] = useState(DEFAULT_SUPPLEMENTS);
+
+          // Admin Add New State
+          const [newPaperName, setNewPaperName] = useState('');
+          const [newPaperPrice, setNewPaperPrice] = useState('');
+          const [newSupName, setNewSupName] = useState('');
+          const [newSupPrice, setNewSupPrice] = useState('');
+
           // Admin State
           const [prices, setPrices] = useState(initialPrices);
           const [tempPrices, setTempPrices] = useState(initialPrices);
@@ -67,12 +77,34 @@
           const [selectedItem, setSelectedItem] = useState('');
           const [itemQty, setItemQty] = useState(1);
           
-          const [pendingMonth, setPendingMonth] = useState('');
+          const [pendingMonths, setPendingMonths] = useState([]); // Changed to Array
           const [pendingAmount, setPendingAmount] = useState(0);
 
           // --- ADMIN FUNCTIONS ---
           const handlePriceChange = (item, value) => {
             setTempPrices(prev => ({ ...prev, [item]: Number(value) }));
+          };
+
+          const handleAddPaper = () => {
+            if(!newPaperName) return;
+            const upperName = newPaperName.toUpperCase();
+            if(!newspapersList.includes(upperName)) {
+              setNewspapersList([...newspapersList, upperName]);
+            }
+            setTempPrices(prev => ({ ...prev, [upperName]: Number(newPaperPrice) || 0 }));
+            setNewPaperName('');
+            setNewPaperPrice('');
+          };
+
+          const handleAddSupplement = () => {
+            if(!newSupName) return;
+            const upperName = newSupName.toUpperCase();
+            if(!supplementsList.includes(upperName)) {
+              setSupplementsList([...supplementsList, upperName]);
+            }
+            setTempPrices(prev => ({ ...prev, [upperName]: Number(newSupPrice) || 0 }));
+            setNewSupName('');
+            setNewSupPrice('');
           };
 
           const savePrices = () => {
@@ -100,11 +132,19 @@
             setBillItems(billItems.filter((_, index) => index !== indexToRemove));
           };
 
+          const togglePendingMonth = (month) => {
+            if (pendingMonths.includes(month)) {
+              setPendingMonths(pendingMonths.filter(m => m !== month));
+            } else {
+              setPendingMonths([...pendingMonths, month]);
+            }
+          };
+
           const clearBill = () => {
             if(confirm('Are you sure you want to clear this receipt?')) {
               setBillItems([]);
               setPendingAmount(0);
-              setPendingMonth('');
+              setPendingMonths([]);
               setCustomerName('');
             }
           };
@@ -136,17 +176,14 @@
             }
 
             try {
-              // Capture the div as an image canvas
               const canvas = await window.html2canvas(invoiceElement, { 
-                scale: 2, // High-quality image
+                scale: 2, 
                 backgroundColor: '#ffffff'
               });
               
-              // Convert canvas to a Blob (Image File)
               canvas.toBlob(async (blob) => {
                 const file = new File([blob], 'Newspaper_Bill.png', { type: 'image/png' });
                 
-                // Try to use Native Web Share API (WhatsApp, etc.)
                 if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                   try {
                     await navigator.share({
@@ -157,7 +194,6 @@
                     console.log("Share cancelled or failed:", err);
                   }
                 } else {
-                  // Fallback: If browser doesn't support sharing files, automatically download it
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
@@ -182,28 +218,29 @@
                   <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                     <Settings className="mr-2 text-blue-600" /> Admin Pricing Panel
                   </h2>
-                  <p className="text-gray-500 text-sm mt-1">Set the unit prices for all newspapers and supplements here. The billing portal will use these saved prices automatically.</p>
+                  <p className="text-gray-500 text-sm mt-1">Set unit prices. You can also add custom publications.</p>
                 </div>
                 <button 
                   onClick={savePrices}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium shadow-md transition-colors flex items-center"
                 >
-                  <Save size={20} className="mr-2" /> Save Prices
+                  <Save size={20} className="mr-2" /> Save Changes
                 </button>
               </div>
 
               {showSaveAlert && (
                 <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl flex items-center">
                   <FileText className="mr-2" size={20} />
-                  Prices saved permanently! The billing portal is now updated.
+                  Changes saved permanently! The billing portal is now updated.
                 </div>
               )}
 
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                {/* Newspapers Admin */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Newspapers</h3>
-                  <div className="space-y-4">
-                    {NEWSPAPERS.map(paper => (
+                  <div className="space-y-4 flex-1">
+                    {newspapersList.map(paper => (
                       <div key={paper} className="flex justify-between items-center">
                         <label className="text-gray-700 font-medium w-1/2">{paper}</label>
                         <div className="relative w-1/2">
@@ -220,12 +257,34 @@
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Add New Newspaper */}
+                  <div className="mt-6 pt-4 border-t border-gray-100 flex space-x-2">
+                    <input 
+                      type="text" 
+                      placeholder="Add New Paper..." 
+                      className="flex-1 p-2 border border-gray-300 rounded-lg outline-none text-sm"
+                      value={newPaperName}
+                      onChange={e => setNewPaperName(e.target.value)}
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="Price" 
+                      className="w-20 p-2 border border-gray-300 rounded-lg outline-none text-sm"
+                      value={newPaperPrice}
+                      onChange={e => setNewPaperPrice(e.target.value)}
+                    />
+                    <button onClick={handleAddPaper} className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg transition-colors">
+                      <Plus size={20} />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                {/* Supplements Admin */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Supplements</h3>
-                  <div className="space-y-4">
-                    {SUPPLEMENTS.map(sup => (
+                  <div className="space-y-4 flex-1">
+                    {supplementsList.map(sup => (
                       <div key={sup} className="flex justify-between items-center">
                         <label className="text-gray-700 font-medium w-1/2">{sup}</label>
                         <div className="relative w-1/2">
@@ -241,6 +300,27 @@
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Add New Supplement */}
+                  <div className="mt-6 pt-4 border-t border-gray-100 flex space-x-2">
+                    <input 
+                      type="text" 
+                      placeholder="Add New Supp..." 
+                      className="flex-1 p-2 border border-gray-300 rounded-lg outline-none text-sm"
+                      value={newSupName}
+                      onChange={e => setNewSupName(e.target.value)}
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="Price" 
+                      className="w-20 p-2 border border-gray-300 rounded-lg outline-none text-sm"
+                      value={newSupPrice}
+                      onChange={e => setNewSupPrice(e.target.value)}
+                    />
+                    <button onClick={handleAddSupplement} className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg transition-colors">
+                      <Plus size={20} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -259,7 +339,7 @@
 
                   <div className="space-y-5">
                     
-                    {/* Name & Date Fields (Optional) */}
+                    {/* Name & Date Fields */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name <span className="text-xs text-gray-400">(Optional)</span></label>
@@ -292,13 +372,13 @@
                       >
                         <option value="">-- Select Newspaper or Supplement --</option>
                         <optgroup label="Newspapers">
-                          {NEWSPAPERS.map(paper => (
-                            <option key={paper} value={paper}>{paper} (₹{prices[paper]}/unit)</option>
+                          {newspapersList.map(paper => (
+                            <option key={paper} value={paper}>{paper} (₹{prices[paper] || 0}/unit)</option>
                           ))}
                         </optgroup>
                         <optgroup label="Supplements">
-                          {SUPPLEMENTS.map(sup => (
-                            <option key={sup} value={sup}>{sup} (₹{prices[sup]}/unit)</option>
+                          {supplementsList.map(sup => (
+                            <option key={sup} value={sup}>{sup} (₹{prices[sup] || 0}/unit)</option>
                           ))}
                         </optgroup>
                       </select>
@@ -326,21 +406,24 @@
                   </div>
                 </div>
 
-                {/* Pending Dues Section (With Month Dropdown) */}
+                {/* Pending Dues Section */}
                 <div className="bg-orange-50 p-6 rounded-2xl shadow-sm border border-orange-100">
                   <h3 className="text-lg font-bold text-orange-800 mb-3">Pending Amount / Arrears</h3>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-orange-800 mb-1">Pending Month</label>
-                      <select 
-                        className="w-full p-3 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none bg-white shadow-inner"
-                        value={pendingMonth}
-                        onChange={(e) => setPendingMonth(e.target.value)}
-                      >
-                        <option value="">-- Select --</option>
-                        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
+                      <label className="block text-sm font-medium text-orange-800 mb-2">Select Pending Months (Multi-select)</label>
+                      <div className="flex flex-wrap gap-2">
+                        {MONTHS.map(m => (
+                          <button
+                            key={m}
+                            onClick={() => togglePendingMonth(m)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${pendingMonths.includes(m) ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'bg-white text-orange-700 border-orange-200 hover:bg-orange-100'}`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-orange-800 mb-1">Amount</label>
@@ -369,7 +452,7 @@
                   {/* --- AREA TO CAPTURE AS IMAGE --- */}
                   <div id="invoice-capture-area" className="p-6 pb-4 flex-1 bg-white">
                     <div className="text-center mb-6 border-b border-gray-200 pb-4 border-dashed">
-                      <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest">Invoice</h3>
+                      <h3 className="text-xl font-black text-gray-800 uppercase tracking-widest">NEWSPAPER BILL</h3>
                       {customerName && <p className="text-xl font-bold text-gray-800 mt-2">{customerName}</p>}
                       {billDate && <p className="text-gray-500 text-sm mt-1">Date: {formatDate(billDate)}</p>}
                       {!customerName && !billDate && <p className="text-gray-400 text-sm mt-1">Generated Automatically</p>}
@@ -383,7 +466,7 @@
                         </div>
                       ) : (
                         billItems.map((item, index) => {
-                          const itemPrice = prices[item.name];
+                          const itemPrice = prices[item.name] || 0;
                           const itemTotal = itemPrice * item.qty;
                           return (
                             <div key={index} className="flex justify-between items-center group">
@@ -393,7 +476,7 @@
                               </div>
                               <div className="flex items-center space-x-4">
                                 <p className="font-bold text-gray-800">₹{itemTotal}</p>
-                                {/* Hide trash icon when taking screenshot (handled by not clicking it) */}
+                                {/* Hide trash icon when taking screenshot */}
                                 <button 
                                   onClick={() => removeFromBill(index)}
                                   className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
@@ -416,7 +499,7 @@
                       
                       {Number(pendingAmount) > 0 && (
                         <div className="flex justify-between items-center text-orange-600">
-                          <p>Pending Arrears {pendingMonth ? `(${pendingMonth})` : ''}</p>
+                          <p>Pending Arrears {pendingMonths.length > 0 ? `(${pendingMonths.join(', ')})` : ''}</p>
                           <p className="font-bold">+ ₹{Number(pendingAmount)}</p>
                         </div>
                       )}
@@ -431,7 +514,7 @@
                   </div>
                   {/* --- END CAPTURE AREA --- */}
 
-                  {/* Share & Clear Buttons (Outside of image capture) */}
+                  {/* Share & Clear Buttons */}
                   {billItems.length > 0 && (
                     <div className="p-6 pt-0 bg-white flex gap-3">
                       <button 

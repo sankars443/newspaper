@@ -1,0 +1,307 @@
+import React, { useState, useMemo } from 'react';
+import { Home, Users, MapPin, IndianRupee, CheckCircle, Circle, Plus, BookOpen, Search } from 'lucide-react';
+
+// Mock Initial Data
+const initialCustomers = [
+  { id: 1, name: "Amit Patel", address: "Flat 101, Sunshine Apts", routeOrder: 1, papers: ["Times of India", "Economic Times"], balance: 450, isPaid: false, deliveredToday: false },
+  { id: 2, name: "Priya Sharma", address: "Flat 102, Sunshine Apts", routeOrder: 2, papers: ["The Hindu"], balance: 0, isPaid: true, deliveredToday: false },
+  { id: 3, name: "Rajesh Kumar", address: "B-44, Vasant Vihar", routeOrder: 3, papers: ["Dainik Bhaskar", "Times of India"], balance: 600, isPaid: false, deliveredToday: false },
+  { id: 4, name: "Sneha Gupta", address: "C-12, Vasant Vihar", routeOrder: 4, papers: ["Hindustan Times"], balance: 300, isPaid: false, deliveredToday: false },
+  { id: 5, name: "Vikram Singh", address: "Shop 4, Main Market", routeOrder: 5, papers: ["Economic Times", "Business Standard"], balance: 0, isPaid: true, deliveredToday: false },
+];
+
+const availablePapers = ["Times of India", "The Hindu", "Dainik Bhaskar", "Economic Times", "Hindustan Times", "Business Standard"];
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [customers, setCustomers] = useState(initialCustomers);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // New Customer Form State
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', papers: [], balance: 0 });
+
+  // Dashboard Stats
+  const totalCustomers = customers.length;
+  const pendingCollections = customers.filter(c => !c.isPaid).reduce((sum, c) => sum + c.balance, 0);
+  const deliveriesCompleted = customers.filter(c => c.deliveredToday).length;
+  const progressPercentage = totalCustomers === 0 ? 0 : Math.round((deliveriesCompleted / totalCustomers) * 100);
+
+  // Actions
+  const toggleDelivery = (id) => {
+    setCustomers(customers.map(c => c.id === id ? { ...c, deliveredToday: !c.deliveredToday } : c));
+  };
+
+  const markAsPaid = (id) => {
+    setCustomers(customers.map(c => c.id === id ? { ...c, isPaid: true, balance: 0 } : c));
+  };
+
+  const handlePaperToggle = (paper) => {
+    setNewCustomer(prev => {
+      const papers = prev.papers.includes(paper) 
+        ? prev.papers.filter(p => p !== paper)
+        : [...prev.papers, paper];
+      return { ...prev, papers };
+    });
+  };
+
+  const handleAddCustomer = (e) => {
+    e.preventDefault();
+    if (!newCustomer.name || !newCustomer.address) return;
+    
+    const addedCustomer = {
+      ...newCustomer,
+      id: Date.now(),
+      routeOrder: customers.length + 1,
+      isPaid: newCustomer.balance === 0,
+      deliveredToday: false
+    };
+    
+    setCustomers([...customers, addedCustomer]);
+    setNewCustomer({ name: '', address: '', papers: [], balance: 0 });
+    setShowAddForm(false);
+  };
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(c => 
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      c.address.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [customers, searchQuery]);
+
+  // Views
+  const renderDashboard = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800">Today's Overview</h2>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+          <div className="flex items-center space-x-2 text-blue-600 mb-2">
+            <Users size={20} />
+            <h3 className="font-semibold">Customers</h3>
+          </div>
+          <p className="text-3xl font-bold text-blue-900">{totalCustomers}</p>
+        </div>
+        
+        <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+          <div className="flex items-center space-x-2 text-green-600 mb-2">
+            <IndianRupee size={20} />
+            <h3 className="font-semibold">Pending Dues</h3>
+          </div>
+          <p className="text-3xl font-bold text-green-900">₹{pendingCollections}</p>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="font-semibold text-gray-700 mb-4 flex items-center">
+          <MapPin size={18} className="mr-2" /> Delivery Progress
+        </h3>
+        <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+          <div className="bg-blue-600 h-4 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+        </div>
+        <p className="text-sm text-gray-500 text-right">{deliveriesCompleted} of {totalCustomers} delivered ({progressPercentage}%)</p>
+      </div>
+
+      <div className="bg-orange-50 p-5 rounded-xl border border-orange-100">
+        <h3 className="font-semibold text-orange-800 mb-2">Quick Actions</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => setActiveTab('delivery')} className="bg-white text-orange-700 py-2 px-4 rounded-lg shadow-sm font-medium border border-orange-200">Start Route</button>
+          <button onClick={() => setActiveTab('billing')} className="bg-white text-orange-700 py-2 px-4 rounded-lg shadow-sm font-medium border border-orange-200">Collect Dues</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDeliveryRoute = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-gray-800">Delivery Route</h2>
+      <p className="text-gray-500 text-sm mb-4">Tap on a customer to mark papers as delivered.</p>
+      
+      <div className="space-y-3">
+        {[...customers].sort((a, b) => a.routeOrder - b.routeOrder).map((customer) => (
+          <div 
+            key={customer.id} 
+            onClick={() => toggleDelivery(customer.id)}
+            className={`p-4 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${customer.deliveredToday ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 shadow-sm'}`}
+          >
+            <div className="flex-1">
+              <h3 className={`font-bold ${customer.deliveredToday ? 'text-gray-500 line-through' : 'text-gray-800'}`}>{customer.name}</h3>
+              <p className="text-sm text-gray-500">{customer.address}</p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {customer.papers.map(paper => (
+                  <span key={paper} className={`text-xs px-2 py-1 rounded-md ${customer.deliveredToday ? 'bg-gray-200 text-gray-500' : 'bg-blue-100 text-blue-700'}`}>
+                    {paper}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="ml-4">
+              {customer.deliveredToday ? <CheckCircle className="text-green-500" size={28} /> : <Circle className="text-gray-300" size={28} />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderCustomers = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Customers</h2>
+        <button onClick={() => setShowAddForm(true)} className="bg-blue-600 text-white p-2 rounded-full shadow-md">
+          <Plus size={20} />
+        </button>
+      </div>
+
+      {showAddForm ? (
+        <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 space-y-4">
+          <h3 className="font-bold text-lg border-b pb-2">Add New Customer</h3>
+          <input type="text" placeholder="Full Name" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
+          <input type="text" placeholder="Address / Flat No." className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={newCustomer.address} onChange={e => setNewCustomer({...newCustomer, address: e.target.value})} />
+          
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Subscribed Papers</p>
+            <div className="flex flex-wrap gap-2">
+              {availablePapers.map(paper => (
+                <button 
+                  key={paper} 
+                  onClick={() => handlePaperToggle(paper)}
+                  className={`text-xs px-3 py-1.5 rounded-full border ${newCustomer.papers.includes(paper) ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-300'}`}
+                >
+                  {paper}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <input type="number" placeholder="Initial Balance Dues (₹)" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={newCustomer.balance || ''} onChange={e => setNewCustomer({...newCustomer, balance: Number(e.target.value)})} />
+          
+          <div className="flex space-x-3 pt-2">
+            <button onClick={handleAddCustomer} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium">Save</button>
+            <button onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-medium">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search customers..." 
+              className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-3">
+            {filteredCustomers.map((customer) => (
+              <div key={customer.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="font-bold text-gray-800">{customer.name}</h3>
+                    <p className="text-sm text-gray-500">{customer.address}</p>
+                  </div>
+                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md font-medium">Route #{customer.routeOrder}</span>
+                </div>
+                <div className="text-sm text-gray-600 flex flex-wrap gap-1 mt-1">
+                  <BookOpen size={14} className="inline mr-1 text-gray-400" />
+                  {customer.papers.join(", ")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const renderBilling = () => (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-gray-800">Monthly Billing</h2>
+      
+      <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-4 flex justify-between items-center">
+        <div>
+          <p className="text-sm text-yellow-800 font-medium">Total Pending</p>
+          <p className="text-2xl font-bold text-yellow-900">₹{pendingCollections}</p>
+        </div>
+        <IndianRupee size={32} className="text-yellow-600 opacity-50" />
+      </div>
+
+      <div className="space-y-3">
+        {customers.sort((a, b) => b.balance - a.balance).map((customer) => (
+          <div key={customer.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-gray-800">{customer.name}</h3>
+              <p className="text-sm text-gray-500">{customer.address}</p>
+              {customer.isPaid ? (
+                <span className="inline-block mt-1 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-md font-medium">Paid</span>
+              ) : (
+                <span className="inline-block mt-1 text-red-600 text-sm font-bold">Due: ₹{customer.balance}</span>
+              )}
+            </div>
+            
+            {!customer.isPaid && (
+              <button 
+                onClick={() => markAsPaid(customer.id)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              >
+                Mark Paid
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans pb-20 max-w-md mx-auto shadow-2xl relative">
+      {/* Header */}
+      <header className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow-md">
+        <h1 className="text-xl font-bold">PaperTrack Pro</h1>
+        <p className="text-blue-200 text-sm">Newspaper Supplier App</p>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="p-4">
+        {activeTab === 'dashboard' && renderDashboard()}
+        {activeTab === 'delivery' && renderDeliveryRoute()}
+        {activeTab === 'customers' && renderCustomers()}
+        {activeTab === 'billing' && renderBilling()}
+      </main>
+
+      {/* Bottom Mobile Navigation */}
+      <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-200 flex justify-around items-center py-3 px-2 z-20 pb-safe">
+        <button 
+          onClick={() => setActiveTab('dashboard')} 
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Home size={24} />
+          <span className="text-[10px] mt-1 font-medium">Home</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('delivery')} 
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'delivery' ? 'text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <MapPin size={24} />
+          <span className="text-[10px] mt-1 font-medium">Route</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('customers')} 
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'customers' ? 'text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Users size={24} />
+          <span className="text-[10px] mt-1 font-medium">Customers</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('billing')} 
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === 'billing' ? 'text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <IndianRupee size={24} />
+          <span className="text-[10px] mt-1 font-medium">Billing</span>
+        </button>
+      </nav>
+    </div>
+  );
+}

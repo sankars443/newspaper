@@ -159,6 +159,11 @@
           const subtotal = calculateSubtotal();
           const grandTotal = subtotal + Number(pendingAmount || 0);
 
+          // Dynamic UPI Payment Link (Auto-loads Amount and UPI ID)
+          const upiString = `upi://pay?pa=sivasankarant47@okicici&pn=Sivasankaran%20T&am=${grandTotal}&cu=INR&tn=Newspaper%20Bill`;
+          // Auto-Generate QR Code Image
+          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
+
           const formatDate = (dateStr) => {
             if (!dateStr) return '';
             const [year, month, day] = dateStr.split('-');
@@ -178,7 +183,8 @@
             try {
               const canvas = await window.html2canvas(invoiceElement, { 
                 scale: 2, 
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                useCORS: true // Required to capture the external QR Code image
               });
               
               canvas.toBlob(async (blob) => {
@@ -510,6 +516,16 @@
                           <IndianRupee size={24} className="mr-1" /> {grandTotal}
                         </p>
                       </div>
+                      
+                      {grandTotal > 0 && (
+                        <div className="mt-6 pt-4 border-t border-gray-200 border-dashed flex flex-col items-center justify-center">
+                          <p className="text-sm font-bold text-gray-800 mb-2">Scan & Pay via UPI</p>
+                          <a href={upiString} className="block cursor-pointer">
+                            <img src={qrCodeUrl} alt="UPI Payment QR Code" crossOrigin="anonymous" className="w-32 h-32 border-2 border-gray-200 p-2 rounded-xl shadow-sm" />
+                          </a>
+                          <p className="text-xs text-gray-500 mt-2 font-medium">sivasankarant47@okicici</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {/* --- END CAPTURE AREA --- */}
